@@ -53,6 +53,7 @@ func realMain(planFile string) error {
 	graph.SetDir(true)
 	graph.SetName("G")
 	graph.SetStrict(true)
+	graph.AddAttr("G", "rankdir", "LR")
 
 	// walkState := func (graphName string, sv *tfjson.StateValues) *gographviz.SubGraph {
 	// 	s := gographviz.NewSubGraph(graphName)
@@ -60,33 +61,43 @@ func realMain(planFile string) error {
 
 	// plan
 	// g := walkState("plan", plan.PriorState)
-	var walk func(*tfjson.StateModule) string
+	var walk func(string, *tfjson.StateModule) string
 
-	walk = func(m *tfjson.StateModule) string {
-		maddr := m.Address
-		if maddr == "" {
-			maddr = "[root]"
+	walk = func(graphName string, m *tfjson.StateModule) string {
+		var maddr string
+		if m.Address == "" {
+			maddr = graphName
+		} else {
+			maddr = fmt.Sprintf("%s: %s", graphName, m.Address)
 		}
-		graph.AddNode("G", maddr, nil)
+		foundNull := false
 		for _, r := range m.Resources {
-			// name := fmt.Sprintf("%s.%s", r.Type, r.Name)
-			// if r.Index != nil {
-			// 	name = fmt.Sprintf("%s[%s]", name, r.Index)
-			// }
-			name := r.Address
+			rName := fmt.Sprintf("%s: %s.%s", graphName, r.Type, r.Name)
 
-			graph.AddNode("G", name, nil)
-			graph.AddEdge(maddr, name, true, nil)
+			if r.Type == "null_resource" {
+				graph.AddNode(graphName, rName, map[string]string{"color": "blue"})
+				graph.AddEdge(maddr, rName, true, nil)
+				foundNull = true
+			}
+		}
+		if maddr == graphName {
+			graph.AddNode(graphName, maddr, nil)
+		} else if foundNull {
+			graph.AddNode(graphName, maddr, map[string]string{"color": "green"})
+		} else {
+			graph.AddNode(graphName, maddr, map[string]string{"color": "red"})
 		}
 		for _, c := range m.ChildModules {
-			p := walk(c)
+			p := walk(graphName, c)
 			graph.AddEdge(maddr, p, true, nil)
 		}
 		return maddr
 	}
 
-	// walk(plan.PriorState.Values.RootModule)
-	walk(plan.PlannedValues.RootModule)
+	graph.AddSubGraph("G", "planned", nil)
+	graph.AddSubGraph("G", "prior", nil)
+	// walk("planned", plan.PlannedValues.RootModule)
+	walk("prior", plan.PriorState.Values.RootModule)
 
 	output := graph.String()
 	fmt.Println(output)
