@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/awalterschulze/gographviz"
+	address "github.com/hashicorp/go-terraform-address"
 	tfjson "github.com/hashicorp/terraform-json"
 )
 
@@ -55,12 +56,6 @@ func realMain(planFile string) error {
 	graph.SetStrict(true)
 	graph.AddAttr("G", "rankdir", "LR")
 
-	// walkState := func (graphName string, sv *tfjson.StateValues) *gographviz.SubGraph {
-	// 	s := gographviz.NewSubGraph(graphName)
-	// }
-
-	// plan
-	// g := walkState("plan", plan.PriorState)
 	var walk func(string, *tfjson.StateModule) string
 
 	walk = func(graphName string, m *tfjson.StateModule) string {
@@ -70,22 +65,23 @@ func realMain(planFile string) error {
 		} else {
 			maddr = fmt.Sprintf("%s: %s", graphName, m.Address)
 		}
-		foundNull := false
+		graph.AddNode(graphName, maddr, map[string]string{"color": "blue"})
 		for _, r := range m.Resources {
-			rName := fmt.Sprintf("%s: %s.%s", graphName, r.Type, r.Name)
-
-			if r.Type == "null_resource" {
-				graph.AddNode(graphName, rName, map[string]string{"color": "blue"})
-				graph.AddEdge(maddr, rName, true, nil)
-				foundNull = true
+			if r.Mode == "data" {
+				// TODO:
+				// 1. fix terraform-address
+				// 2. different colors for different modes
+				continue
 			}
-		}
-		if maddr == graphName {
-			graph.AddNode(graphName, maddr, nil)
-		} else if foundNull {
-			graph.AddNode(graphName, maddr, map[string]string{"color": "green"})
-		} else {
-			graph.AddNode(graphName, maddr, map[string]string{"color": "red"})
+			a, err := address.NewAddress(r.Address)
+			if err != nil {
+				panic(err)
+			}
+
+			rName := fmt.Sprintf("%s: %s", maddr, a.ResourceSpec.String())
+
+			graph.AddNode(graphName, rName, nil)
+			graph.AddEdge(maddr, rName, true, nil)
 		}
 		for _, c := range m.ChildModules {
 			p := walk(graphName, c)
@@ -96,7 +92,7 @@ func realMain(planFile string) error {
 
 	graph.AddSubGraph("G", "planned", nil)
 	graph.AddSubGraph("G", "prior", nil)
-	// walk("planned", plan.PlannedValues.RootModule)
+	walk("planned", plan.PlannedValues.RootModule)
 	walk("prior", plan.PriorState.Values.RootModule)
 
 	output := graph.String()
