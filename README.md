@@ -9,3 +9,9 @@ Modules are outlined in blue, data resources in green, and managed resources in 
 
     # Generate pdf and open it (Mac)
     ./dot-terraform-json plan.json | dot -Tpdf > dot.pdf && open dot.pdf
+
+
+## Example Output:
+
+Below is the example output of the plan of [examples/main.tf](/examples/main.tf).
+![Example Output](/examples/dot.png)
