@@ -55,6 +55,8 @@ func realMain(planFile string) error {
 	graph.SetName("G")
 	graph.SetStrict(true)
 	graph.AddAttr("G", "rankdir", "LR")
+	graph.AddAttr("G", "newrank", "true")
+	graph.AddAttr("G", "compoun", "true")
 
 	var walk func(string, *tfjson.StateModule) string
 
@@ -66,7 +68,7 @@ func realMain(planFile string) error {
 			maddr = fmt.Sprintf("%s: %s", graphName, m.Address)
 		}
 		// add the module
-		graph.AddNode(graphName, maddr, map[string]string{"color": "blue"})
+		graph.AddNode(graphName, maddr, nil)
 		for _, r := range m.Resources {
 			a, err := address.NewAddress(r.Address)
 			if err != nil {
@@ -75,12 +77,15 @@ func realMain(planFile string) error {
 
 			label := map[string]string{
 				"label": a.ResourceSpec.String(),
+				"shape": "box",
 			}
 
 			rName := fmt.Sprintf("%s.%s", maddr, a.ResourceSpec.String())
 
 			if a.Mode == address.DataResourceMode {
 				label["color"] = "green"
+			} else {
+				label["color"] = "blue"
 			}
 
 			graph.AddNode(graphName, rName, label)
