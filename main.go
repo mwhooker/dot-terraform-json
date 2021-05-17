@@ -65,22 +65,25 @@ func realMain(planFile string) error {
 		} else {
 			maddr = fmt.Sprintf("%s: %s", graphName, m.Address)
 		}
+		// add the module
 		graph.AddNode(graphName, maddr, map[string]string{"color": "blue"})
 		for _, r := range m.Resources {
-			if r.Mode == "data" {
-				// TODO:
-				// 1. fix terraform-address
-				// 2. different colors for different modes
-				continue
-			}
 			a, err := address.NewAddress(r.Address)
 			if err != nil {
 				panic(err)
 			}
 
-			rName := fmt.Sprintf("%s: %s", maddr, a.ResourceSpec.String())
+			label := map[string]string{
+				"label": a.ResourceSpec.String(),
+			}
 
-			graph.AddNode(graphName, rName, nil)
+			rName := fmt.Sprintf("%s.%s", maddr, a.ResourceSpec.String())
+
+			if a.Mode == address.DataResourceMode {
+				label["color"] = "green"
+			}
+
+			graph.AddNode(graphName, rName, label)
 			graph.AddEdge(maddr, rName, true, nil)
 		}
 		for _, c := range m.ChildModules {
@@ -89,6 +92,8 @@ func realMain(planFile string) error {
 		}
 		return maddr
 	}
+
+	// TODO: support state output
 
 	graph.AddSubGraph("G", "planned", nil)
 	graph.AddSubGraph("G", "prior", nil)
